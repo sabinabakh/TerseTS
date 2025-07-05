@@ -419,3 +419,197 @@ test "abc compressor compresses and decompresses constant signal" {
         tersets.isWithinErrorBound,
     );
 }
+//
+// test "abc compressor can handle wafer dataset from TSV file" {
+//     const allocator = std.testing.allocator;
+//
+//     // Try to read the wafer data file
+//     var wafer_data = readWaferTSV(allocator, "Wafer_TRAIN.tsv") catch |err| {
+//         std.debug.print("Warning: Could not read Wafer_TRAIN.tsv: {}\n", .{err});
+//         std.debug.print("Skipping wafer test. Make sure Wafer_TRAIN.tsv is in the working directory.\n", .{});
+//         return;
+//     };
+//     defer wafer_data.deinit();
+//
+//     std.debug.print("Loaded {} data points from Wafer_TRAIN.tsv\n", .{wafer_data.items.len});
+//
+//     // Print all parsed values
+//     // std.debug.print("\nAll parsed values:\n", .{});
+//     // for (wafer_data.items, 0..) |value, i| {
+//     //     if (i > 0 and i % 10 == 0) {
+//     //         std.debug.print("\n", .{}); // New line every 10 values for readability
+//     //     }
+//     //     std.debug.print("{d:.3} ", .{value});
+//     // }
+//     // std.debug.print("\n\n", .{});
+//
+//     // Test with different error bounds
+//     const error_bounds = [_]f32{ 1.0, 0.5, 0.1, 0.05 };
+//
+//     for (error_bounds) |error_bound| {
+//         std.debug.print("\nTesting wafer data with error bound: {d}\n", .{error_bound});
+//
+//         var compressed_values = ArrayList(u8).init(allocator);
+//         defer compressed_values.deinit();
+//
+//         // Add timeout/progress monitoring
+//         const start_time = std.time.nanoTimestamp();
+//         const max_duration_ns = 10_000_000_000; // 10 seconds
+//
+//         compress(
+//             wafer_data.items,
+//             &compressed_values,
+//             allocator,
+//             error_bound,
+//         ) catch |err| {
+//             const duration_ns = std.time.nanoTimestamp() - start_time;
+//             const duration_ms = @as(f64, @floatFromInt(duration_ns)) / 1_000_000.0;
+//
+//             if (duration_ns > max_duration_ns) {
+//                 std.debug.print("  x Compression timed out after {d:.1}ms\n", .{duration_ms});
+//             } else {
+//                 std.debug.print("  ✗ Compression failed: {} (after {d:.1}ms)\n", .{ err, duration_ms });
+//             }
+//             continue;
+//         };
+//
+//         const end_time = std.time.nanoTimestamp();
+//         const duration_ms = @as(f64, @floatFromInt(end_time - start_time)) / 1_000_000.0;
+//
+//         std.debug.print("  + Compression successful in {d:.1}ms\n", .{duration_ms});
+//
+//         // Calculate compression metrics
+//         const original_bytes = wafer_data.items.len * 8; // f64 = 8 bytes
+//         const compression_ratio = @as(f64, @floatFromInt(original_bytes)) / @as(f64, @floatFromInt(compressed_values.items.len));
+//         std.debug.print("  Original: {} bytes, Compressed: {} bytes\n", .{ original_bytes, compressed_values.items.len });
+//         std.debug.print("  Compression ratio: {d:.2}x\n", .{compression_ratio});
+//
+//         // Test decompression
+//         var decompressed_values = ArrayList(f64).init(allocator);
+//         defer decompressed_values.deinit();
+//
+//         decompress(compressed_values.items, &decompressed_values) catch |err| {
+//             std.debug.print("  ✗ Decompression failed: {}\n", .{err});
+//             continue;
+//         };
+//
+//         std.debug.print("  + Decompression successful\n", .{});
+//         std.debug.print("  Original size: {}, Decompressed size: {}\n", .{ wafer_data.items.len, decompressed_values.items.len });
+//
+//         // Verify error bound is satisfied
+//         if (wafer_data.items.len == decompressed_values.items.len) {
+//             var max_error: f64 = 0.0;
+//             var error_count: usize = 0;
+//
+//             for (wafer_data.items, decompressed_values.items) |original, decompressed| {
+//                 const abs_error = @abs(original - decompressed);
+//                 if (abs_error > error_bound) {
+//                     error_count += 1;
+//                 }
+//                 max_error = @max(max_error, abs_error);
+//             }
+//
+//             std.debug.print("  Max error: {d:.6} (bound: {d})\n", .{ max_error, error_bound });
+//             if (error_count == 0) {
+//                 std.debug.print("  + All points within error bound\n", .{});
+//             } else {
+//                 std.debug.print("  ✗ {} points exceed error bound\n", .{error_count});
+//             }
+//         } else {
+//             std.debug.print("  ✗ Size mismatch after decompression\n", .{});
+//         }
+//
+//         // Only test one error bound if we find one that works quickly
+//         if (duration_ms < 1000.0) { // Less than 1 second
+//             std.debug.print("  Found working error bound: {d}\n", .{error_bound});
+//             break;
+//         }
+//     }
+// }
+
+test "abc compressor compressor compresses and decompresses wafer dataset from TSV file" {
+    const allocator = std.testing.allocator;
+    const error_bound: f32 = tester.generateBoundedRandomValue(f32, 0, 1, undefined);
+
+    // Try to read the wafer data file
+    var wafer_data = readWaferTSV(allocator, "Wafer_TRAIN.tsv") catch |err| {
+        std.debug.print("Warning: Could not read Wafer_TRAIN.tsv: {}\n", .{err});
+        std.debug.print("Skipping wafer test. Wafer_TRAIN.tsv might be not in the working directory.\n", .{});
+        return;
+    };
+    defer wafer_data.deinit();
+
+    std.debug.print("Loaded {} data points from Wafer_TRAIN.tsv\n", .{wafer_data.items.len});
+
+    // // Print all parsed values
+    // std.debug.print("\nAll parsed values:\n", .{});
+    // for (wafer_data.items, 0..) |value, i| {
+    //     if (i > 0 and i % 10 == 0) {
+    //         std.debug.print("\n", .{}); // New line every 10 values
+    //     }
+    //     std.debug.print("{d:.3} ", .{value});
+    // }
+    // std.debug.print("\n\n", .{});
+
+    try tester.testCompressAndDecompress(
+        wafer_data.items,
+        allocator,
+        Method.ABCLinearApproximation,
+        error_bound,
+        tersets.isWithinErrorBound,
+    );
+}
+
+/// Read wafer data from TSV file:
+/// train_data = pd.read_csv("Wafer_TRAIN.tsv", sep='\t', header=None)
+/// if train_data.shape[1] > 1:
+///     train_series = train_data.iloc[:, 1:].values.flatten()
+///     train_series = train_series[~np.isnan(train_series)]
+fn readWaferTSV(allocator: std.mem.Allocator, file_path: []const u8) !ArrayList(f64) {
+    const file = std.fs.cwd().openFile(file_path, .{}) catch |err| {
+        return err;
+    };
+    defer file.close();
+
+    const file_size = try file.getEndPos();
+    const contents = try allocator.alloc(u8, file_size);
+    defer allocator.free(contents);
+
+    _ = try file.readAll(contents);
+
+    var train_series = ArrayList(f64).init(allocator);
+    var lines = std.mem.splitScalar(u8, contents, '\n');
+    var line_count: usize = 0;
+
+    while (lines.next()) |line| {
+        line_count += 1;
+        if (line.len == 0) continue;
+
+        var columns = std.mem.splitScalar(u8, line, '\t');
+        var col_count: usize = 0;
+
+        // Process all columns
+        while (columns.next()) |col| {
+            col_count += 1;
+            if (col.len == 0) continue;
+
+            // Skip first column
+            if (col_count == 1) continue;
+
+            const value = std.fmt.parseFloat(f64, col) catch |err| {
+                // If we can't parse, skip this value
+                std.debug.print("Warning: line {}, col {}: couldn't parse '{s}': {}\n", .{ line_count, col_count, col, err });
+                continue;
+            };
+
+            // Skip NaN values
+            if (std.math.isNan(value)) {
+                continue;
+            }
+
+            try train_series.append(value);
+        }
+    }
+
+    return train_series;
+}
