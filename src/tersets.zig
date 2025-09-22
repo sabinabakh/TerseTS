@@ -28,6 +28,11 @@ const vw = @import("line_simplification/visvalingam_whyatt.zig");
 const sliding_window = @import("line_simplification/sliding_window.zig");
 const bottom_up = @import("line_simplification/bottom_up.zig");
 const rle_enconding = @import("lossless_encoding/run_length_encoding.zig");
+const elias_fano_encoding = @import("lossless_encoding/elias_fano_encoding.zig");
+const elias_gamma_encoding = @import("lossless_encoding/elias_gamma_encoding.zig");
+const derle_encoding = @import("lossless_encoding/derle_encoding.zig");
+const frame_of_reference_encoding = @import("lossless_encoding/frame_of_reference_encoding.zig");
+const variable_length_quantity_encoding = @import("lossless_encoding/variable_length_quantity_encoding.zig");
 const bitpacked_quantization = @import("quantization/bitpacked_quantization.zig");
 
 /// The errors that can occur in TerseTS.
@@ -43,23 +48,7 @@ pub const Error = error{
 };
 
 /// The compression methods in TerseTS.
-pub const Method = enum {
-    PoorMansCompressionMidrange,
-    PoorMansCompressionMean,
-    SwingFilter,
-    SwingFilterDisconnected,
-    SlideFilter,
-    SimPiece,
-    PiecewiseConstantHistogram,
-    PiecewiseLinearHistogram,
-    ABCLinearApproximation,
-    VisvalingamWhyatt,
-    SlidingWindow,
-    BottomUp,
-    MixPiece,
-    BitPackedQuantization,
-    RunLengthEncoding,
-};
+pub const Method = enum { PoorMansCompressionMidrange, PoorMansCompressionMean, SwingFilter, SwingFilterDisconnected, SlideFilter, SimPiece, PiecewiseConstantHistogram, PiecewiseLinearHistogram, ABCLinearApproximation, VisvalingamWhyatt, SlidingWindow, BottomUp, MixPiece, BitPackedQuantization, RunLengthEncoding, EliasFanoEncoding, EliasGammaEncoding, DERLEEncoding, FrameOfReferenceEncoding, VariableLengthQuantityEncoding };
 
 /// Compress `uncompressed_values` within `error_bound` using `method` and returns the results
 /// as a ArrayList of bytes returned by the compression methods. `allocator` is passed to the
@@ -179,6 +168,24 @@ pub fn compress(
         .RunLengthEncoding => {
             try rle_enconding.compress(uncompressed_values, &compressed_values);
         },
+        .EliasFanoEncoding => {
+            try elias_fano_encoding.compress(uncompressed_values, &compressed_values);
+        },
+        .EliasGammaEncoding => {
+            try elias_gamma_encoding.compress(uncompressed_values, &compressed_values);
+        },
+        //.DeltaEncoding => {
+        //    try delta_encoding.compress(uncompressed_values, &compressed_values);
+        //},
+        .DERLEEncoding => {
+            try derle_encoding.compress(uncompressed_values, &compressed_values);
+        },
+        .FrameOfReferenceEncoding => {
+            try frame_of_reference_encoding.compress(uncompressed_values, &compressed_values);
+        },
+        .VariableLengthQuantityEncoding => {
+            try variable_length_quantity_encoding.compress(uncompressed_values, &compressed_values);
+        },
         .BitPackedQuantization => {
             try bitpacked_quantization.compress(
                 allocator,
@@ -245,6 +252,21 @@ pub fn decompress(
         },
         .RunLengthEncoding => {
             try rle_enconding.decompress(compressed_values_slice, &decompressed_values);
+        },
+        .EliasFanoEncoding => {
+            try elias_fano_encoding.decompress(compressed_values_slice, &decompressed_values);
+        },
+        .EliasGammaEncoding => {
+            try elias_gamma_encoding.decompress(compressed_values_slice, &decompressed_values);
+        },
+        .DERLEEncoding => {
+            try derle_encoding.decompress(compressed_values_slice, &decompressed_values);
+        },
+        .FrameOfReferenceEncoding => {
+            try frame_of_reference_encoding.decompress(compressed_values_slice, &decompressed_values);
+        },
+        .VariableLengthQuantityEncoding => {
+            try variable_length_quantity_encoding.decompress(compressed_values_slice, &decompressed_values);
         },
         .BitPackedQuantization => {
             try bitpacked_quantization.decompress(compressed_values_slice, &decompressed_values);

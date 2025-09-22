@@ -16,9 +16,17 @@
 *.pch
 .idea
 .vscode
+.venv
 .zig-cache
 tersets.egg-info
 __pycache__
 build
 zig-out
 dist
+loaded_time_series
+integer_encoding_benchmark_results
+analyse_results_diagrams
+!/integer_encoding_benchmark_results/.gitkeep
+!/analyse_results_diagrams/.gitkeep
+!/loaded_time_series/.gitkeep
+

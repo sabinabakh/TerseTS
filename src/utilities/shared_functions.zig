@@ -119,3 +119,18 @@ pub fn computeMaxAbsoluteError(uncompressed_values: []const f64, seg_start: usiz
     // Return max abs.
     return linf;
 }
+
+/// Read a value of type `T` from `values` starting at `*offset`, advancing `*offset` by `@sizeOf(T)`.
+pub fn readValue(comptime T: type, values: []const u8, offset: *usize) Error!T {
+    const advance_offset = @sizeOf(T);
+    if (values.len - offset.* < advance_offset)
+        return Error.UnsupportedInput;
+
+    // Read into a fixed-size byte array, then bit-cast.
+    var bytes: [@sizeOf(T)]u8 = undefined;
+    std.mem.copyForwards(u8, bytes[0..], values[offset.* .. offset.* + advance_offset]);
+
+    offset.* += advance_offset;
+    const value: T = @bitCast(bytes);
+    return value;
+}
